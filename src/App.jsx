@@ -1,5 +1,6 @@
 import useKpiData from './hooks/useKpiData';
 import KpiCard from './components/KpiCard';
+import PersonsTable from './components/PersonsTable';
 
 const CARDS = [
   {
@@ -35,20 +36,20 @@ const CARDS = [
     sub: (d) => `${Number(d.completed).toLocaleString()} completed`,
   },
   {
-    key: 'overdueTasks',
-    label: 'Overdue Tasks',
-    icon: '⏰',
-    color: '#fce4ec',
-    textColor: '#c62828',
-    sub: 'pending',
+    key: 'saleRentListings',
+    label: 'Pocket Listings (Sale / Rent)',
+    icon: '🏷️',
+    color: '#e0e7ff',
+    textColor: '#3730a3',
+    sub: 'For Sale (Offline) · For Rent (Offline)',
   },
   {
     key: 'comments',
-    label: 'Comments',
+    label: 'Comments (Last 7 Days)',
     icon: '💬',
     color: '#e0f2f1',
     textColor: '#00695c',
-    sub: (d) => `${Number(d.last7d).toLocaleString()} in last 7 days`,
+    sub: (d) => `${Number(d.total).toLocaleString()} total timeline comments`,
   },
   {
     key: 'callLogs',
@@ -68,10 +69,6 @@ const CARDS = [
   },
 ];
 
-function formatTime(d) {
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
 function formatLongDate(d) {
   return d.toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -82,7 +79,7 @@ function formatLongDate(d) {
 }
 
 export default function App() {
-  const { data, error, loading, lastUpdated, refresh } = useKpiData();
+  const { data, error, loading } = useKpiData();
   const kpis = data?.kpis ?? {};
   const now = new Date();
 
@@ -94,14 +91,7 @@ export default function App() {
           <h1>Dashboard KPI</h1>
         </div>
         <div className="header-right">
-          <div className="live-chip" title={`Auto-refreshes every minute${error ? ' — connection issue' : ''}`}>
-            <span className={`live-dot ${error ? 'down' : 'up'}`} />
-            {error ? 'Offline' : 'Live'}
-          </div>
           <div className="header-date">{formatLongDate(now)}</div>
-          <button className="refresh-btn" onClick={refresh} disabled={loading}>
-            {loading ? 'Loading…' : 'Refresh'}
-          </button>
         </div>
       </header>
 
@@ -112,20 +102,48 @@ export default function App() {
       )}
 
       {loading && !data && (
-        <div className="grid">
-          {CARDS.map((c) => (
-            <div className="card" key={c.key}>
-              <div className="card-header">
-                <div className="icon" style={{ background: c.color, color: c.textColor }}>
-                  {c.icon}
+        <>
+          <div className="grid">
+            {CARDS.map((c) => (
+              <div className="card" key={c.key}>
+                <div className="card-header">
+                  <div className="icon" style={{ background: c.color, color: c.textColor }}>
+                    {c.icon}
+                  </div>
+                  <h2>{c.label}</h2>
                 </div>
-                <h2>{c.label}</h2>
+                <div className="kpi-value skeleton" />
+                <div className="kpi-sub skeleton" />
               </div>
-              <div className="kpi-value skeleton" />
-              <div className="kpi-sub skeleton" />
+            ))}
+          </div>
+          <div className="persons">
+            <div className="persons-header">
+              <div className="skeleton persons-title-skeleton" />
+              <div className="skeleton persons-count-skeleton" />
             </div>
-          ))}
-        </div>
+            <table className="persons-table persons-table-skeleton">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th className="num">Listings</th>
+                  <th className="num">New (7d)</th>
+                  <th className="num">Comments (7d)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td><div className="skeleton row-skeleton" /></td>
+                    <td><div className="skeleton row-skeleton num-skeleton" /></td>
+                    <td><div className="skeleton row-skeleton num-skeleton" /></td>
+                    <td><div className="skeleton row-skeleton num-skeleton" /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {data && (
@@ -135,9 +153,7 @@ export default function App() {
               <KpiCard key={c.key} kpi={kpis[c.key]} config={c} />
             ))}
           </div>
-          <footer className="footer">
-            {lastUpdated && <>Last updated {formatTime(lastUpdated)}</>} · auto-refreshes every 60s
-          </footer>
+          <PersonsTable rows={kpis.persons?.rows} />
         </>
       )}
     </div>

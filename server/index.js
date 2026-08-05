@@ -13,6 +13,16 @@ const CFG = {
   saleCategoryId: 17, // "Sales Listings"
   rentCategoryId: 57, // "Rental Listings"
 
+  // Timeline comments on inventory items use the lower-case dynamic entity type.
+  inventoryCommentEntityType: 'dynamic_1032',
+
+  // Pocket listings = stage "For Sale (Offline)" / "Rent (Offline)".
+  saleOfflineStageId: 'DT1032_17:NEW', // "For Sale (Offline)"
+  rentOfflineStageId: 'DT1032_57:PREPARATION', // "Rent (Offline)"
+
+  // Responsible people to hide from the persons table.
+  excludedResponsibleIds: [25185],
+
   // Refresh / cache lifetime in seconds (dashboard polls this often)
   refreshSeconds: 60,
 
@@ -119,19 +129,19 @@ async function kpiViewings() {
   return { ok: true, value: all.length, completed };
 }
 
-async function kpiOverdueTasks() {
-  // Only works if the webhook has access to the Tasks app.
-  const r = await bx('tasks.task.list', {
-    filter: { '<=DEADLINE': iso(new Date()), STATUS: [4, 5, 6, 7] },
-    select: ['ID'],
-    start: 0,
-  });
-  const total = Number(r.total) || itemsOf(r).length;
-  return { ok: true, value: total, status: 'pending' };
+async function kpiSaleRentListings() {
+  // Pocket listings — items in the "For Sale (Offline)" / "Rent (Offline)" stages.
+  const [sale, rent] = await Promise.all([
+    countInventory({ categoryId: CFG.saleCategoryId, stageId: CFG.saleOfflineStageId }),
+    countInventory({ categoryId: CFG.rentCategoryId, stageId: CFG.rentOfflineStageId }),
+  ]);
+  return { ok: true, value: `${sale} / ${rent}`, sale, rent };
 }
 
 async function kpiComments() {
-  // Leads modified in the window -> fetch their timeline comments in batches.
+  // Only timeline comments (right-side feed) count here — the lead's plain-text
+  // "Comment" field (left side of the form) is not part of crm.timeline.comment.list
+  // and is never included. Main value = comments CREATED in the last 7 days.
   const leadIds = [];
   const sinceIso = iso(daysAgo(CFG.commentLeadWindowDays));
   const first = await bx('crm.lead.list', {
@@ -180,7 +190,88 @@ async function kpiComments() {
       }
     }
   }
-  return { ok: true, value: total, last7d };
+  return { ok: true, value: last7d, total, last7d };
+}
+
+async function kpiPersons() {
+  // Breakdown per responsible person (still active) over the Property Inventory:
+  // total listings, new listings (last 7 days), and timeline comments created on
+  // their listings in the last 7 days.
+  const all = [];
+  let start = 0;
+  while (true) {
+    const r = await bx('crm.item.list', {
+      entityTypeId: CFG.inventoryEntityTypeId,
+      select: ['id', 'assignedById', 'createdTime'],
+      start,
+    });
+    const items = itemsOf(r);
+    all.push(...items);
+    if (items.length < 50) break;
+    start += 50;
+  }
+
+  const weekAgoIso = iso(daysAgo(7));
+  const ownerByItem = new Map();
+  const per = new Map();
+  for (const it of all) {
+    const uid = Number(it.assignedById);
+    if (!uid) continue;
+    if (!per.has(uid)) per.set(uid, { listings: 0, newListings: 0, comments: 0 });
+    const row = per.get(uid);
+    row.listings += 1;
+    if (String(it.createdTime) >= weekAgoIso) row.newListings += 1;
+    ownerByItem.set(Number(it.id), row);
+  }
+
+  // Timeline comments on their listings, created in the last 7 days (batched).
+  const itemIds = [...ownerByItem.keys()];
+  for (let i = 0; i < itemIds.length; i += 50) {
+    const chunk = itemIds.slice(i, i + 50);
+    const cmd = {};
+    chunk.forEach((itemId, j) => {
+      cmd[`c${j}`] =
+        `crm.timeline.comment.list?filter[ENTITY_ID]=${itemId}` +
+        `&filter[ENTITY_TYPE]=${CFG.inventoryCommentEntityType}&select[0]=ID&select[1]=CREATED`;
+    });
+    const r = await bx('batch', { cmd, halt: 0 });
+    const results = r?.result?.result ?? {};
+    for (const [key, comments] of Object.entries(results)) {
+      if (!Array.isArray(comments)) continue;
+      const owner = ownerByItem.get(chunk[Number(key.replace('c', ''))]);
+      if (!owner) continue;
+      for (const c of comments) {
+        if (String(c.CREATED) >= weekAgoIso) owner.comments += 1;
+      }
+    }
+  }
+
+  // User names + active flag for the responsible people.
+  const names = new Map();
+  const uids = [...per.keys()];
+  for (let i = 0; i < uids.length; i += 50) {
+    const chunk = uids.slice(i, i + 50);
+    const r = await bx('user.get', { filter: { ID: chunk }, sort: 'ID', order: 'desc' });
+    for (const u of r.result || []) {
+      names.set(Number(u.ID), { name: `${u.NAME || ''} ${u.LAST_NAME || ''}`.trim(), active: !!u.ACTIVE });
+    }
+  }
+
+  const rows = [];
+  for (const [uid, row] of per) {
+    const u = names.get(uid);
+    if (!u || !u.active) continue;
+    if (CFG.excludedResponsibleIds.includes(uid)) continue;
+    rows.push({
+      userId: uid,
+      name: u.name || `User #${uid}`,
+      listings: row.listings,
+      newListings: row.newListings,
+      comments: row.comments,
+    });
+  }
+  rows.sort((a, b) => b.listings - a.listings || b.comments - a.comments);
+  return { ok: true, value: rows.length, rows };
 }
 
 async function kpiCallLogs() {
@@ -233,8 +324,9 @@ async function collectKpis() {
     listings7d: kpiListings7d,
     totalListings: kpiTotalListings,
     viewings: kpiViewings,
-    overdueTasks: kpiOverdueTasks,
+    saleRentListings: kpiSaleRentListings,
     comments: kpiComments,
+    persons: kpiPersons,
     callLogs: kpiCallLogs,
     dealsYtd: kpiDealsYtd,
   };
