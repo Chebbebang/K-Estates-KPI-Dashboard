@@ -75,6 +75,12 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
+.header-updated {
+  color: #1a7f37;
+  background: #f0fdf4;
+  font-variant-numeric: tabular-nums;
+}
+
 @keyframes blink {
   0%,
   100% {
@@ -168,6 +174,48 @@ body {
   line-height: 1.1;
 }
 
+.kpi-value.value-long {
+  font-size: 30px;
+}
+
+.kpi-value.value-xl {
+  font-size: 26px;
+}
+
+.kpi-value.value-huge {
+  font-size: 22px;
+}
+
+.charts-section {
+  margin-top: 30px;
+}
+
+.charts-section > h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #434a56;
+  letter-spacing: 0.3px;
+  margin-bottom: 14px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(430px, 1fr));
+  gap: 20px;
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-zone {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #f0f2f5;
+  flex: 1;
+}
+
 .kpi-sub {
   font-size: 13px;
   color: #8a94a6;
@@ -176,6 +224,116 @@ body {
 
 .inline-warn {
   cursor: help;
+}
+
+.delta {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.delta-up {
+  color: #1a7f37;
+  background: #f0fdf4;
+}
+
+.delta-down {
+  color: #b91c1c;
+  background: #fef2f2;
+}
+
+.card-chart {
+  margin-top: 12px;
+}
+
+.vchart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 110px;
+  margin-top: 14px;
+}
+
+.vchart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  height: 100%;
+  min-width: 0;
+}
+
+.vchart-bar-wrap {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.vchart-bar {
+  width: 100%;
+  max-width: 26px;
+  border-radius: 4px 4px 0 0;
+  min-height: 3px;
+  transition: height 0.3s ease;
+}
+
+.vchart-label {
+  font-size: 9px;
+  color: #8a94a6;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hchart {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.hrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hrow-name {
+  flex: 0 0 92px;
+  font-size: 11px;
+  color: #434a56;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hrow-track {
+  flex: 1;
+  height: 10px;
+  background: #eef1f6;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.hrow-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.hrow-count {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1a1d23;
+  font-variant-numeric: tabular-nums;
 }
 
 .skeleton {
